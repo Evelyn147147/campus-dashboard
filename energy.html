@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>智慧校园 · 能耗管理</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Microsoft YaHei','PingFang SC',sans-serif;background:linear-gradient(180deg,rgba(10,22,40,0.4) 0%,rgba(13,31,60,0.4) 50%,rgba(10,22,40,0.4) 100%),url('IMG_20260604_153929.png') center/cover no-repeat;background-color:#0A1628;color:#E8F0FF;width:100vw;height:100vh;overflow:hidden;user-select:none}
+.header{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:rgba(10,22,40,0.95);border-bottom:1px solid rgba(0,212,255,0.15);z-index:100;position:relative}
+.header .title{font-size:20px;font-weight:700;letter-spacing:3px;background:linear-gradient(90deg,#00D4FF,#6C5CE7);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.header .info{display:flex;gap:24px;align-items:center;font-size:12px;color:#8899BB}
+.header .status-dot{width:8px;height:8px;border-radius:50%;background:#36B37E;display:inline-block;margin-right:6px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.main-container{height:calc(100vh - 52px - 50px);display:flex;padding:8px 10px;gap:8px}
+.left-panel,.right-panel{width:27%;display:flex;flex-direction:column;gap:5px}
+.center-panel{flex:1;display:flex;flex-direction:column;gap:5px}
+.panel{background:rgba(13,31,60,0.85);border:1px solid rgba(0,212,255,0.12);border-radius:6px;padding:5px 8px;position:relative;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.35);flex:1;display:flex;flex-direction:column}
+.panel::before{content:'';position:absolute;top:0;left:0;width:100%;height:1px;background:linear-gradient(90deg,transparent,rgba(0,212,255,0.3),transparent)}
+.panel-title{font-size:11px;font-weight:600;color:#00D4FF;margin-bottom:1px;padding-left:8px;border-left:3px solid #00D4FF;letter-spacing:1px;flex-shrink:0}
+.panel .chart-container{flex:1;min-height:0}
+.center-model{flex:1;background:rgba(10,22,40,0.6);border:1px solid rgba(0,212,255,0.15);border-radius:8px;position:relative;overflow:hidden}
+.center-model canvas{width:100%;height:100%;display:block}
+.center-label{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);font-size:11px;color:#8899BB;background:rgba(10,22,40,0.8);padding:4px 14px;border-radius:12px;letter-spacing:1px;border:1px solid rgba(0,212,255,0.15)}
+/* 滚动列表 */
+.scroll-list{overflow:hidden;height:100%}
+.scroll-list .list-inner{animation:scrollUp 15s linear infinite}
+.scroll-list .list-inner:hover{animation-play-state:paused}
+@keyframes scrollUp{0%{transform:translateY(0)}100%{transform:translateY(-50%)}}
+.list-row{display:flex;align-items:center;padding:5px 6px;font-size:11px;border-bottom:1px solid rgba(0,212,255,0.06);gap:6px}
+.list-row .rank{width:18px;height:18px;border-radius:4px;text-align:center;line-height:18px;font-weight:700;font-size:10px;flex-shrink:0}
+.list-row .rank.top3{background:rgba(0,212,255,0.2);color:#00D4FF}
+.list-row .rank.normal{background:rgba(136,153,187,0.2);color:#8899BB}
+.list-row .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.list-row .value{font-weight:700;color:#E8F0FF;flex-shrink:0}
+.list-row .status{font-size:10px;flex-shrink:0}
+.list-row .status.warn{color:#F5A623}
+.list-row .deviation{font-size:10px;color:#E54545;flex-shrink:0}
+/* 节能建议 */
+.eco-tips{overflow:hidden;height:100%}
+.eco-tips .tips-inner{animation:scrollUp 20s linear infinite}
+.eco-tips .tips-inner:hover{animation-play-state:paused}
+.eco-tip{padding:6px 8px;font-size:11px;border-bottom:1px solid rgba(0,212,255,0.06);display:flex;align-items:flex-start;gap:6px;line-height:1.5}
+.eco-tip .tip-icon{flex-shrink:0;font-size:14px}
+.eco-tip .tip-text{color:#C0D0F0}
+.eco-tip .tip-saving{color:#36B37E;font-weight:600;white-space:nowrap;font-size:10px}
+/* 底部导航 */
+.bottom-nav{height:50px;display:flex;align-items:center;justify-content:center;gap:0;background:rgba(10,22,40,0.95);border-top:1px solid rgba(0,212,255,0.15);z-index:100;position:relative}
+.nav-btn{flex:1;max-width:200px;height:100%;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;color:#8899BB;cursor:pointer;transition:all 0.3s;border:none;background:transparent;border-top:2px solid transparent;font-family:inherit;letter-spacing:1px;text-decoration:none}
+.nav-btn:hover{color:#C0D0F0;background:rgba(0,212,255,0.03)}
+.nav-btn.active{color:#00D4FF;border-top-color:#00D4FF;background:rgba(0,212,255,0.06)}
+.nav-btn .nav-icon{font-size:16px}
+/* 碳排放指数特殊样式 */
+.carbon-index{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center}
+.carbon-score{font-size:42px;font-weight:700;font-family:'DIN','Roboto Mono',monospace;background:linear-gradient(180deg,#E54545 0%,#F5A623 50%,#36B37E 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.carbon-label{font-size:11px;color:#F5A623;margin-top:2px;letter-spacing:1px}
+.carbon-detail{font-size:10px;color:#8899BB;margin-top:4px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="title">🏫 智慧校园 · 建筑智能运维可视化平台</div>
+  <div class="info">
+    <span><span class="status-dot"></span>系统在线</span>
+    <span>📅 2026-06-08 星期一</span>
+    <span>⏰ <span id="liveTime">--:--:--</span></span>
+    <span>🔄 每30s自动刷新</span>
+  </div>
+</div>
+
+<div class="main-container">
+  <!-- ===== 左侧面板 ===== -->
+  <div class="left-panel">
+    <!-- ① 各建筑当日用电量 -->
+    <div class="panel">
+      <div class="panel-title">📊 各建筑当日用电量 (kWh)</div>
+      <div class="chart-container" id="chart-bar-electricity"></div>
+    </div>
+    <!-- ② 分时用电趋势（面积图）★新增 -->
+    <div class="panel">
+      <div class="panel-title">⏱ 今日分时用电趋势 (kW)</div>
+      <div class="chart-container" id="chart-area-hourly"></div>
+    </div>
+    <!-- ③ 供水管网压力 -->
+    <div class="panel">
+      <div class="panel-title">💧 供水管网实时压力</div>
+      <div class="chart-container" id="chart-gauge-water"></div>
+    </div>
+    <!-- ④ 碳排放达摩克利斯指数 ★新增 -->
+    <div class="panel">
+      <div class="panel-title">⚠ 碳排放达摩克利斯指数</div>
+      <div class="carbon-index">
+        <div class="carbon-score">67.8</div>
+        <div class="carbon-label">⚠ 警戒级别 · 中度风险</div>
+        <div class="carbon-detail">阈值: 80 | 距触发预警剩余 12.2 点</div>
+        <div style="margin-top:6px;width:80%;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden">
+          <div style="height:100%;width:84.8%;background:linear-gradient(90deg,#36B37E,#F5A623,#E54545);border-radius:2px"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 中间模型 ===== -->
+  <div class="center-panel">
+    <div class="center-model" id="center-model">
+      <canvas id="canvas-center"></canvas>
+      <div class="center-label">⚡ 3D能耗流向模型 · 粒子流映射建筑能耗强度</div>
+    </div>
+  </div>
+
+  <!-- ===== 右侧面板 ===== -->
+  <div class="right-panel">
+    <!-- ⑤ 碳排放来源构成 -->
+    <div class="panel">
+      <div class="panel-title">🏭 近7日碳排放来源构成 (tCO₂)</div>
+      <div class="chart-container" id="chart-stack-carbon"></div>
+    </div>
+    <!-- ⑥ 能耗类型占比 -->
+    <div class="panel">
+      <div class="panel-title">⚡ 能耗类型占比（折标煤当量）</div>
+      <div class="chart-container" id="chart-ring-type"></div>
+    </div>
+    <!-- ⑦ 节能建议滚动条 ★新增 -->
+    <div class="panel">
+      <div class="panel-title">💡 智能节能建议</div>
+      <div class="eco-tips" id="eco-tips"></div>
+    </div>
+    <!-- ⑧ 用水异常监测 -->
+    <div class="panel">
+      <div class="panel-title">🚰 用水异常监测点 TOP6</div>
+      <div class="scroll-list" id="scroll-water"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 底部导航栏 ===== -->
+<div class="bottom-nav">
+  <a class="nav-btn" href="overview.html"><span class="nav-icon">📊</span>总体态势</a>
+  <a class="nav-btn active" href="energy.html"><span class="nav-icon">⚡</span>能耗管理</a>
+  <a class="nav-btn" href="device.html"><span class="nav-icon">⚙</span>设备管理</a>
+  <a class="nav-btn" href="alert.html"><span class="nav-icon">🔔</span>告警工单</a>
+</div>
+
+<script>
+// ============ 通用 ============
+var TEXT_COLOR='#8899BB',TEXT_WHITE='#E8F0FF',C_MAIN='#00D4FF',C_OK='#36B37E',C_WARN='#F5A623',C_ERR='#E54545',C_PURPLE='#6C5CE7';
+var axisLabel={color:TEXT_COLOR,fontSize:8},axisLine={lineStyle:{color:'rgba(0,212,255,0.1)'}},splitLine={lineStyle:{color:'rgba(0,212,255,0.06)'}},legendS={textStyle:{color:TEXT_COLOR,fontSize:8},itemWidth:8,itemHeight:8};
+function initChart(id){var d=document.getElementById(id);return d?echarts.init(d):null}
+function grid(t){return{top:t||28,left:8,right:12,bottom:4,containLabel:true}}
+
+(function tick(){var n=new Date;document.getElementById('liveTime').textContent=n.toTimeString().slice(0,8);setTimeout(tick,1000)})();
+
+function renderScrollList(id,data,isWater){
+  var c=document.getElementById(id),h='<div class="list-inner">';
+  for(var d=0;d<2;d++)data.forEach(function(r,i){
+    h+='<div class="list-row"><span class="rank '+(i<3?'top3':'normal')+'">'+(r.rank||i+1)+'</span><span class="name">'+(r.name||'')+'</span><span class="value">'+(r.value||'')+'</span>';
+    if(r.deviation)h+='<span class="deviation">'+r.deviation+'</span>';
+    if(r.status)h+='<span class="status warn">'+r.status+'</span>';
+    h+='</div>';
+  });
+  h+='</div>';c.innerHTML=h;
+}
+
+// ============ ① 柱状图 — 各建筑当日用电量 ============
+(function(){
+  var c=initChart('chart-bar-electricity');
+  c&&c.setOption({tooltip:{trigger:'axis'},legend:{...legendS,top:0,data:['今日','昨日']},grid:grid(28),
+    xAxis:{type:'category',data:['教学楼群','图书馆','学生宿舍','食堂','行政楼','体育馆','校医院'],axisLabel:{...axisLabel,rotate:15,fontSize:8},axisLine},
+    yAxis:{type:'value',name:'kWh',nameTextStyle:{color:TEXT_COLOR,fontSize:8},axisLabel,splitLine},
+    series:[
+      {name:'今日',type:'bar',data:[37090,24738,20073,13563,7595,3424,2017],itemStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:C_MAIN},{offset:1,color:'rgba(0,212,255,0.4)'}]}},barWidth:12,barGap:'30%'},
+      {name:'昨日',type:'bar',data:[35820,24100,19500,13100,7450,3320,1950],itemStyle:{color:'rgba(136,153,187,0.35)'},barWidth:12}
+    ]
+  });
+})();
+
+// ============ ② 面积图 — 今日分时用电趋势 ★新增 ============
+(function(){
+  var c=initChart('chart-area-hourly');
+  var hours=['00:00','02:00','04:00','06:00','08:00','10:00','12:00','14:00','16:00','18:00','20:00','22:00'];
+  c&&c.setOption({tooltip:{trigger:'axis'},grid:grid(22),
+    xAxis:{type:'category',data:hours,axisLabel:{...axisLabel,fontSize:7},axisLine},
+    yAxis:{type:'value',name:'kW',nameTextStyle:{color:TEXT_COLOR,fontSize:7},axisLabel:{fontSize:7,color:TEXT_COLOR},splitLine},
+    series:[
+      {name:'照明用电',type:'line',stack:'总量',data:[480,420,380,400,2200,3200,3100,3400,2800,1800,1200,620],smooth:true,symbol:'none',lineStyle:{width:0},areaStyle:{color:'rgba(108,92,231,0.5)'},itemStyle:{color:C_PURPLE}},
+      {name:'空调用电',type:'line',stack:'总量',data:[600,580,540,520,1800,3500,3100,3500,4200,3800,2800,1800],smooth:true,symbol:'none',lineStyle:{width:0},areaStyle:{color:'rgba(0,212,255,0.45)'},itemStyle:{color:C_MAIN}},
+      {name:'动力用电',type:'line',stack:'总量',data:[1000,850,780,880,800,1100,1050,1080,1180,1050,950,880],smooth:true,symbol:'none',lineStyle:{width:0},areaStyle:{color:'rgba(245,166,35,0.35)'},itemStyle:{color:C_WARN}},
+      {name:'其他用电',type:'line',stack:'总量',data:[400,300,330,410,380,520,560,580,750,610,490,420],smooth:true,symbol:'none',lineStyle:{width:0},areaStyle:{color:'rgba(54,179,126,0.35)'},itemStyle:{color:C_OK}}
+    ]
+  });
+})();
+
+// ============ ③ 仪表盘 — 供水管网压力 ============
+(function(){
+  var c=initChart('chart-gauge-water');
+  c&&c.setOption({series:[{type:'gauge',center:['50%','55%'],radius:'78%',startAngle:210,endAngle:-30,min:0,max:0.6,
+    axisLine:{lineStyle:{width:14,color:[[0.25,C_ERR],[0.47,C_OK],[0.75,C_MAIN],[1,C_ERR]]}},
+    pointer:{length:'58%',width:4,itemStyle:{color:C_MAIN}},
+    axisTick:{distance:-14,length:4,lineStyle:{width:1,color:'#999'}},
+    splitLine:{distance:-18,length:10,lineStyle:{width:2,color:'#999'}},
+    axisLabel:{distance:20,color:TEXT_COLOR,fontSize:8,formatter:'{value}'},
+    detail:{formatter:'{value} MPa',color:TEXT_WHITE,fontSize:20,offsetCenter:[0,'60%']},
+    data:[{value:0.38,name:'管网压力'}]
+  }]});
+})();
+
+// ============ ⑤ 堆叠柱状图 — 碳排放 ============
+(function(){
+  var c=initChart('chart-stack-carbon');
+  c&&c.setOption({tooltip:{trigger:'axis'},legend:{...legendS,top:0,data:['电力间接','天然气','公务车辆','制冷剂'],itemWidth:8,itemHeight:5},grid:grid(28),
+    xAxis:{type:'category',data:['5/29','5/30','5/31','6/1','6/2','6/3','6/4'],axisLabel,axisLine},
+    yAxis:{type:'value',name:'tCO₂',nameTextStyle:{color:TEXT_COLOR,fontSize:8},axisLabel,splitLine},
+    series:[
+      {name:'电力间接',type:'bar',stack:'total',data:[573,595,556,513,531,618,631],itemStyle:{color:C_MAIN},barWidth:14},
+      {name:'天然气',type:'bar',stack:'total',data:[112,108,115,120,118,105,110],itemStyle:{color:C_WARN}},
+      {name:'公务车辆',type:'bar',stack:'total',data:[21,23,19,15,16,20,22],itemStyle:{color:C_PURPLE}},
+      {name:'制冷剂',type:'bar',stack:'total',data:[8,9,8,8,9,9,10],itemStyle:{color:C_ERR}}
+    ]
+  });
+})();
+
+// ============ ⑥ 环形图 — 能耗类型 ============
+(function(){
+  var c=initChart('chart-ring-type');
+  c&&c.setOption({series:[{type:'pie',radius:['55%','78%'],center:['50%','50%'],itemStyle:{borderRadius:3,borderColor:'rgba(10,22,40,0.8)',borderWidth:2},label:{show:false},
+    data:[{value:72.5,name:'电力消耗',itemStyle:{color:C_MAIN}},{value:18.3,name:'天然气',itemStyle:{color:C_WARN}},{value:6.2,name:'汽柴油',itemStyle:{color:C_PURPLE}},{value:3.0,name:'可再生能源',itemStyle:{color:C_OK}}]}],
+    graphic:[{type:'text',left:'center',top:'38%',style:{text:'42.6',textAlign:'center',fill:TEXT_WHITE,fontSize:22,fontWeight:'bold'}},{type:'text',left:'center',top:'54%',style:{text:'tce',textAlign:'center',fill:TEXT_COLOR,fontSize:9}}],
+    legend:{bottom:0,textStyle:{color:TEXT_COLOR,fontSize:8},itemWidth:8,itemHeight:8}
+  });
+})();
+
+// ============ ⑦ 节能建议滚动条 ★新增 ============
+(function(){
+  var tips=[
+    {icon:'🌡',text:'图书馆空调设定温度建议上调至26℃，以减少冷负荷。当前部分区域实测23℃，存在过度制冷。',saving:'预计节能: 1,200 kWh/月'},
+    {icon:'💡',text:'教学楼C区走廊照明在白天（08:00-16:00）未关闭。建议加装光照传感器实现自动调光。',saving:'预计节能: 850 kWh/月'},
+    {icon:'🔌',text:'学生宿舍区夜间（23:00-05:00）待机能耗偏高。建议推广智能插座，切断非必要设备电源。',saving:'预计节能: 1,500 kWh/月'},
+    {icon:'💧',text:'学生宿舍8栋用水量连续3天超正常值56%，建议排查管道渗漏或异常用水行为。',saving:'预计节水: 280 m³/月'},
+    {icon:'❄',text:'行政楼AHU-B1-02回风温度持续偏高，可能过滤网堵塞。建议本周内安排清洗维护。',saving:'预计节能: 600 kWh/月'},
+    {icon:'☀',text:'体育馆屋顶光伏板发电效率下降8%，建议安排季度清洁除尘。',saving:'预计增发: 420 kWh/月'},
+    {icon:'⚡',text:'食堂排烟风机非用餐时段仍在高速运行，建议加装变频器按需调节转速。',saving:'预计节能: 980 kWh/月'}
+  ];
+  var c=document.getElementById('eco-tips'),h='<div class="tips-inner">';
+  for(var d=0;d<2;d++)tips.forEach(function(t){
+    h+='<div class="eco-tip"><span class="tip-icon">'+t.icon+'</span><span class="tip-text">'+t.text+'</span><span class="tip-saving">'+t.saving+'</span></div>';
+  });
+  h+='</div>';c.innerHTML=h;
+})();
+
+// ============ ⑧ 用水异常滚动列表 ============
+renderScrollList('scroll-water',[
+  {rank:1,name:'学生宿舍8栋',value:'12.5 m³/h',deviation:'+56%',status:'⚠ 偏高'},
+  {rank:2,name:'第三食堂后厨',value:'9.8 m³/h',deviation:'+51%',status:'⚠ 偏高'},
+  {rank:3,name:'教学楼C区卫生间',value:'7.2 m³/h',deviation:'+44%',status:'⚠ 偏高'},
+  {rank:4,name:'体育馆淋浴间',value:'4.1 m³/h',deviation:'-25%',status:'↓ 偏低'},
+  {rank:5,name:'图书馆饮水区',value:'2.8 m³/h',deviation:'+27%',status:'⚡ 注意'},
+  {rank:6,name:'行政楼绿化灌溉',value:'3.6 m³/h',deviation:'+44%',status:'⚠ 偏高'}
+],true);
+
+// ============ 中心 Canvas — 能耗流向模型 ============
+(function(){
+  var cnv=document.getElementById('canvas-center'),ctx,rafId;
+  function h2r(h,a){var r=parseInt(h.slice(1,3),16),g=parseInt(h.slice(3,5),16),b=parseInt(h.slice(5,7),16);return'rgba('+r+','+g+','+b+','+a+')'}
+  function draw(){
+    cnv.width=cnv.parentElement.clientWidth;cnv.height=cnv.parentElement.clientHeight;
+    ctx=cnv.getContext('2d');var W=cnv.width,H=cnv.height;
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='rgba(10,22,40,0.5)';ctx.fillRect(0,0,W,H);
+    ctx.strokeStyle='rgba(0,212,255,0.03)';ctx.lineWidth=0.5;
+    for(var i=0;i<W;i+=50){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,H);ctx.stroke()}
+    for(var i=0;i<H;i+=50){ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(W,i);ctx.stroke()}
+    var sx=W*0.15,sy=H*0.5;
+    ctx.fillStyle='#00D4FF';ctx.shadowColor='#00D4FF';ctx.shadowBlur=18;
+    ctx.beginPath();ctx.arc(sx,sy,16,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+    ctx.fillStyle='#FFF';ctx.font='bold 11px "Microsoft YaHei"';ctx.textAlign='center';ctx.fillText('能源站',sx,sy+26);
+    var targets=[{name:'教学楼群',x:W*0.38,y:H*0.25,load:37090},{name:'图书馆',x:W*0.55,y:H*0.45,load:24738},{name:'学生宿舍',x:W*0.75,y:H*0.32,load:20073},{name:'食堂',x:W*0.65,y:H*0.68,load:13563},{name:'行政楼',x:W*0.85,y:H*0.55,load:7595},{name:'体育馆',x:W*0.42,y:H*0.72,load:3424},{name:'校医院',x:W*0.88,y:H*0.72,load:2017}];
+    var maxL=37090,now=Date.now()/1000;
+    targets.forEach(function(t,i){
+      var intensity=t.load/maxL;
+      var alpha=0.15+intensity*0.4;
+      ctx.strokeStyle=intensity>0.7?'rgba(229,69,69,'+alpha+')':intensity>0.4?'rgba(245,166,35,'+alpha+')':'rgba(54,179,126,'+alpha+')';
+      ctx.lineWidth=1+intensity*2.5;ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(t.x,t.y);ctx.stroke();
+      var phase=(now*0.6+i*0.5)%2;
+      var px=sx+(t.x-sx)*(phase/2),py=sy+(t.y-sy)*(phase/2);
+      ctx.fillStyle=intensity>0.7?'#E54545':intensity>0.4?'#F5A623':'#36B37E';
+      ctx.beginPath();ctx.arc(px,py,2.5+intensity*2,0,Math.PI*2);ctx.fill();
+      var sz=12+intensity*10,hs=sz/2;
+      ctx.fillStyle=intensity>0.7?'rgba(229,69,69,0.8)':intensity>0.4?'rgba(245,166,35,0.8)':'rgba(54,179,126,0.8)';
+      ctx.beginPath();ctx.moveTo(t.x,t.y-hs-4);ctx.lineTo(t.x+hs+4,t.y);ctx.lineTo(t.x,t.y+hs+4);ctx.lineTo(t.x-hs-4,t.y);ctx.closePath();ctx.fill();
+      ctx.fillStyle='#E8F0FF';ctx.font='10px "Microsoft YaHei"';ctx.fillText(t.name,t.x,t.y+hs+12);
+      ctx.fillStyle=TEXT_COLOR;ctx.font='8px "Microsoft YaHei"';ctx.fillText((t.load/1000).toFixed(1)+'k',t.x,t.y+hs+24);
+    });
+    rafId=requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+window.addEventListener('resize',function(){
+  var cnv=document.getElementById('canvas-center');
+  if(cnv){cnv.width=cnv.parentElement.clientWidth;cnv.height=cnv.parentElement.clientHeight}
+});
+</script>
+</body>
+</html>

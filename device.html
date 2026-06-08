@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>智慧校园 · 设备管理</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Microsoft YaHei','PingFang SC',sans-serif;background:linear-gradient(180deg,rgba(10,22,40,0.4) 0%,rgba(13,31,60,0.4) 50%,rgba(10,22,40,0.4) 100%),url('IMG_20260604_153929.png') center/cover no-repeat;background-color:#0A1628;color:#E8F0FF;width:100vw;height:100vh;overflow:hidden;user-select:none}
+.header{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:rgba(10,22,40,0.95);border-bottom:1px solid rgba(0,212,255,0.15);z-index:100;position:relative}
+.header .title{font-size:20px;font-weight:700;letter-spacing:3px;background:linear-gradient(90deg,#00D4FF,#6C5CE7);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.header .info{display:flex;gap:24px;align-items:center;font-size:12px;color:#8899BB}
+.header .status-dot{width:8px;height:8px;border-radius:50%;background:#36B37E;display:inline-block;margin-right:6px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.main-container{height:calc(100vh - 52px - 50px);display:flex;padding:8px 10px;gap:8px}
+.left-panel,.right-panel{width:27%;display:flex;flex-direction:column;gap:5px}
+.center-panel{flex:1;display:flex;flex-direction:column;gap:5px}
+.panel{background:rgba(13,31,60,0.85);border:1px solid rgba(0,212,255,0.12);border-radius:6px;padding:5px 8px;position:relative;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.35);flex:1;display:flex;flex-direction:column}
+.panel::before{content:'';position:absolute;top:0;left:0;width:100%;height:1px;background:linear-gradient(90deg,transparent,rgba(0,212,255,0.3),transparent)}
+.panel-title{font-size:11px;font-weight:600;color:#00D4FF;margin-bottom:1px;padding-left:8px;border-left:3px solid #00D4FF;letter-spacing:1px;flex-shrink:0}
+.panel .chart-container{flex:1;min-height:0}
+.center-model{flex:1;background:rgba(10,22,40,0.6);border:1px solid rgba(0,212,255,0.15);border-radius:8px;position:relative;overflow:hidden}
+.center-model canvas{width:100%;height:100%;display:block}
+.center-label{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);font-size:11px;color:#8899BB;background:rgba(10,22,40,0.8);padding:4px 14px;border-radius:12px;letter-spacing:1px;border:1px solid rgba(0,212,255,0.15)}
+/* 滚动列表 */
+.scroll-list{overflow:hidden;height:100%}
+.scroll-list .list-inner{animation:scrollUp 15s linear infinite}
+.scroll-list .list-inner:hover{animation-play-state:paused}
+@keyframes scrollUp{0%{transform:translateY(0)}100%{transform:translateY(-50%)}}
+.list-row{display:flex;align-items:center;padding:5px 6px;font-size:11px;border-bottom:1px solid rgba(0,212,255,0.06);gap:6px}
+.list-row .rank{width:18px;height:18px;border-radius:4px;text-align:center;line-height:18px;font-weight:700;font-size:10px;flex-shrink:0}
+.list-row .rank.top3{background:rgba(0,212,255,0.2);color:#00D4FF}
+.list-row .rank.normal{background:rgba(136,153,187,0.2);color:#8899BB}
+.list-row .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.list-row .value{font-weight:700;color:#E8F0FF;flex-shrink:0}
+.list-row .status{font-size:10px;flex-shrink:0}
+/* 状态卡片 */
+.status-cards{display:flex;flex-direction:column;gap:4px;overflow-y:auto;height:100%}
+.status-card{background:rgba(0,212,255,0.04);border:1px solid rgba(0,212,255,0.08);border-radius:4px;padding:5px 8px;font-size:10px;display:flex;justify-content:space-between;align-items:center}
+.status-card .sc-name{font-weight:600;color:#E8F0FF;font-size:11px}
+.status-card .sc-loc{color:#8899BB;font-size:9px}
+.status-card .sc-params{display:flex;gap:8px}
+.status-card .sc-param{text-align:center}
+.status-card .sc-val{font-size:14px;font-weight:700;color:#00D4FF;font-family:'DIN','Roboto Mono',monospace}
+.status-card .sc-unit{font-size:8px;color:#8899BB}
+.status-card .sc-status{padding:2px 8px;border-radius:10px;font-size:9px;font-weight:600}
+.status-card .sc-status.ok{background:rgba(54,179,126,0.15);color:#36B37E}
+.status-card .sc-status.warn{background:rgba(245,166,35,0.15);color:#F5A623}
+/* 寿命预测 */
+.life-predict{display:flex;flex-direction:column;gap:6px;height:100%;overflow-y:auto;padding:2px 0}
+.life-item{display:flex;align-items:center;gap:8px;font-size:10px}
+.life-item .li-name{width:72px;color:#E8F0FF;font-weight:600;flex-shrink:0;font-size:10px}
+.life-item .li-bar{flex:1;height:16px;background:rgba(255,255,255,0.05);border-radius:8px;overflow:hidden;position:relative}
+.life-item .li-fill{height:100%;border-radius:8px;transition:width 0.5s}
+.life-item .li-fill.safe{background:linear-gradient(90deg,#36B37E,#00D4FF)}
+.life-item .li-fill.warn{background:linear-gradient(90deg,#F5A623,#E54545)}
+.life-item .li-fill.danger{background:linear-gradient(90deg,#E54545,#FF0000)}
+.life-item .li-days{width:60px;text-align:right;font-weight:700;font-family:'DIN','Roboto Mono',monospace;flex-shrink:0;font-size:11px}
+.life-item .li-days.safe{color:#36B37E}
+.life-item .li-days.warn{color:#F5A623}
+.life-item .li-days.danger{color:#E54545}
+/* 底部导航 */
+.bottom-nav{height:50px;display:flex;align-items:center;justify-content:center;gap:0;background:rgba(10,22,40,0.95);border-top:1px solid rgba(0,212,255,0.15);z-index:100;position:relative}
+.nav-btn{flex:1;max-width:200px;height:100%;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;color:#8899BB;cursor:pointer;transition:all 0.3s;border:none;background:transparent;border-top:2px solid transparent;font-family:inherit;letter-spacing:1px;text-decoration:none}
+.nav-btn:hover{color:#C0D0F0;background:rgba(0,212,255,0.03)}
+.nav-btn.active{color:#00D4FF;border-top-color:#00D4FF;background:rgba(0,212,255,0.06)}
+.nav-btn .nav-icon{font-size:16px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="title">🏫 智慧校园 · 建筑智能运维可视化平台</div>
+  <div class="info">
+    <span><span class="status-dot"></span>系统在线</span>
+    <span>📅 2026-06-08 星期一</span>
+    <span>⏰ <span id="liveTime">--:--:--</span></span>
+    <span>🔄 每30s自动刷新</span>
+  </div>
+</div>
+
+<div class="main-container">
+  <!-- ===== 左侧面板 ===== -->
+  <div class="left-panel">
+    <!-- ① 设备运行状态分布 -->
+    <div class="panel">
+      <div class="panel-title">🔩 各系统设备运行状态分布</div>
+      <div class="chart-container" id="chart-bar-device"></div>
+    </div>
+    <!-- ② 四大系统健康度雷达图 -->
+    <div class="panel">
+      <div class="panel-title">🎯 四大系统健康度评分</div>
+      <div class="chart-container" id="chart-radar-health"></div>
+    </div>
+    <!-- ③ AHU运行参数 -->
+    <div class="panel">
+      <div class="panel-title">🌬 暖通空调AHU实时运行参数</div>
+      <div class="status-cards" id="cards-ahu"></div>
+    </div>
+    <!-- ④ 关键设备寿命预测 ★新增 -->
+    <div class="panel">
+      <div class="panel-title">⏳ 关键设备寿命预测（剩余天数）</div>
+      <div class="life-predict" id="life-predict"></div>
+    </div>
+  </div>
+
+  <!-- ===== 中间模型 ===== -->
+  <div class="center-panel">
+    <div class="center-model" id="center-model">
+      <canvas id="canvas-center"></canvas>
+      <div class="center-label">🏗 3D建筑剖切模型 · 设备管线BIM可视化</div>
+    </div>
+  </div>
+
+  <!-- ===== 右侧面板 ===== -->
+  <div class="right-panel">
+    <!-- ⑤ 照明系统 -->
+    <div class="panel">
+      <div class="panel-title">💡 照明系统覆盖率 & 节能率</div>
+      <div class="chart-container" id="chart-gauge-light"></div>
+    </div>
+    <!-- ⑥ 电梯运行次数 -->
+    <div class="panel">
+      <div class="panel-title">🛗 各建筑电梯日运行次数</div>
+      <div class="chart-container" id="chart-bar-elevator"></div>
+    </div>
+    <!-- ⑦ 今日保养完成率 ★新增 -->
+    <div class="panel">
+      <div class="panel-title">✅ 今日保养计划完成率</div>
+      <div class="chart-container" id="chart-gauge-maintain"></div>
+    </div>
+    <!-- ⑧ 设备异常预警 -->
+    <div class="panel">
+      <div class="panel-title">⚠ 设备异常预警 TOP6</div>
+      <div class="scroll-list" id="scroll-alert"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 底部导航栏 ===== -->
+<div class="bottom-nav">
+  <a class="nav-btn" href="overview.html"><span class="nav-icon">📊</span>总体态势</a>
+  <a class="nav-btn" href="energy.html"><span class="nav-icon">⚡</span>能耗管理</a>
+  <a class="nav-btn active" href="device.html"><span class="nav-icon">⚙</span>设备管理</a>
+  <a class="nav-btn" href="alert.html"><span class="nav-icon">🔔</span>告警工单</a>
+</div>
+
+<script>
+var TEXT_COLOR='#8899BB',TEXT_WHITE='#E8F0FF',C_MAIN='#00D4FF',C_OK='#36B37E',C_WARN='#F5A623',C_ERR='#E54545',C_PURPLE='#6C5CE7';
+var axisLabel={color:TEXT_COLOR,fontSize:8},axisLine={lineStyle:{color:'rgba(0,212,255,0.1)'}},splitLine={lineStyle:{color:'rgba(0,212,255,0.06)'}},legendS={textStyle:{color:TEXT_COLOR,fontSize:8},itemWidth:8,itemHeight:8};
+function initChart(id){var d=document.getElementById(id);return d?echarts.init(d):null}
+function grid(t){return{top:t||28,left:8,right:12,bottom:4,containLabel:true}}
+
+(function tick(){var n=new Date;document.getElementById('liveTime').textContent=n.toTimeString().slice(0,8);setTimeout(tick,1000)})();
+
+function renderScrollList(id,data){
+  var c=document.getElementById(id),h='<div class="list-inner">';
+  for(var d=0;d<2;d++)data.forEach(function(r,i){
+    h+='<div class="list-row"><span class="rank '+(i<3?'top3':'normal')+'">'+(r.rank||i+1)+'</span><span class="name">'+(r.device||r.name||'')+'</span><span class="value">'+(r.value||'')+'</span>';
+    if(r.status)h+='<span class="status" style="color:'+(r.status.includes('紧急')?'#E54545':r.status.includes('重要')?'#F5A623':'#8899BB')+'">'+r.status+'</span>';
+    h+='</div>';
+  });
+  h+='</div>';c.innerHTML=h;
+}
+
+// ============ ① 堆叠横向柱状图 — 设备状态分布 ============
+(function(){
+  var c=initChart('chart-bar-device');
+  c&&c.setOption({tooltip:{trigger:'axis'},legend:{...legendS,top:0,data:['正常运行','计划检修','故障停机'],itemWidth:8,itemHeight:5},grid:grid(28),
+    xAxis:{type:'value',name:'台',nameTextStyle:{color:TEXT_COLOR,fontSize:7},axisLabel,splitLine},
+    yAxis:{type:'category',data:['电梯系统','暖通空调','给排水','照明系统','供配电','消防系统'].reverse(),axisLabel:{...axisLabel,fontSize:9},axisLine},
+    series:[
+      {name:'正常运行',type:'bar',stack:'total',data:[48,185,32,9850,156,42].reverse(),itemStyle:{color:C_OK},barWidth:14},
+      {name:'计划检修',type:'bar',stack:'total',data:[2,12,3,120,5,3].reverse(),itemStyle:{color:C_WARN}},
+      {name:'故障停机',type:'bar',stack:'total',data:[0,3,1,30,1,1].reverse(),itemStyle:{color:C_ERR}}
+    ]
+  });
+})();
+
+// ============ ② 雷达图 — 健康度评分 ============
+(function(){
+  var c=initChart('chart-radar-health');
+  c&&c.setOption({tooltip:{},legend:{bottom:0,textStyle:{color:TEXT_COLOR,fontSize:8},data:['本月','上月'],itemWidth:8,itemHeight:8},
+    radar:{center:['50%','44%'],radius:'58%',indicator:[{name:'电梯系统',max:100},{name:'暖通空调',max:100},{name:'给排水',max:100},{name:'照明系统',max:100}],
+      axisName:{color:TEXT_COLOR,fontSize:10},splitArea:{areaStyle:{color:['rgba(0,212,255,0.02)','rgba(0,212,255,0.04)']}},splitLine:{lineStyle:{color:'rgba(0,212,255,0.1)'}},axisLine:{lineStyle:{color:'rgba(0,212,255,0.15)'}}},
+    series:[{type:'radar',data:[
+      {value:[92,78,85,96],name:'本月',areaStyle:{color:'rgba(0,212,255,0.15)'},lineStyle:{color:C_MAIN,width:2},itemStyle:{color:C_MAIN},symbol:'circle',symbolSize:4},
+      {value:[90,76,83,95],name:'上月',areaStyle:{color:'rgba(136,153,187,0.06)'},lineStyle:{color:'#8899BB',width:1,type:'dashed'},itemStyle:{color:'#8899BB'},symbol:'circle',symbolSize:3}
+    ]}]
+  });
+})();
+
+// ============ ③ AHU状态卡片 ============
+(function(){
+  var data=[{name:'AHU-1F-01',loc:'图书馆1F大厅',temp:'24.5',hum:'52',fan:'75',status:'正常',cls:'ok'},{name:'AHU-2F-03',loc:'教学楼A区2F',temp:'25.1',hum:'48',fan:'82',status:'正常',cls:'ok'},{name:'AHU-B1-02',loc:'行政楼B1',temp:'26.8',hum:'55',fan:'90',status:'⚠ 温度偏高',cls:'warn'},{name:'AHU-3F-05',loc:'宿舍5栋3F',temp:'23.2',hum:'58',fan:'60',status:'正常',cls:'ok'},{name:'AHU-1F-07',loc:'食堂1F',temp:'27.3',hum:'62',fan:'95',status:'⚠ 湿度偏高',cls:'warn'}];
+  document.getElementById('cards-ahu').innerHTML=data.map(function(d){return '<div class="status-card"><div><div class="sc-name">'+d.name+'</div><div class="sc-loc">'+d.loc+'</div></div><div class="sc-params"><div class="sc-param"><div class="sc-val">'+d.temp+'</div><div class="sc-unit">℃</div></div><div class="sc-param"><div class="sc-val">'+d.hum+'</div><div class="sc-unit">%RH</div></div><div class="sc-param"><div class="sc-val">'+d.fan+'</div><div class="sc-unit">%</div></div></div><span class="sc-status '+d.cls+'">'+d.status+'</span></div>'}).join('');
+})();
+
+// ============ ④ 关键设备寿命预测 ★新增 ============
+(function(){
+  var devices=[{name:'3#变压器',total:2190,remaining:185,type:'warn'},{name:'1#冷水机组',total:3650,remaining:820,type:'safe'},{name:'AHU-B1-02',total:1825,remaining:95,type:'danger'},{name:'电梯ELV-03',total:2555,remaining:420,type:'safe'},{name:'给水泵P-03',total:1460,remaining:130,type:'warn'},{name:'消防泵FP-01',total:2920,remaining:1100,type:'safe'}];
+  document.getElementById('life-predict').innerHTML=devices.map(function(d){
+    var pct=Math.round(d.remaining/d.total*100);
+    return '<div class="life-item"><span class="li-name">'+d.name+'</span><div class="li-bar"><div class="li-fill '+d.type+'" style="width:'+pct+'%"></div></div><span class="li-days '+d.type+'">'+d.remaining+' 天</span></div>';
+  }).join('');
+})();
+
+// ============ ⑤ 双仪表盘 — 照明系统 ============
+(function(){
+  var c=initChart('chart-gauge-light');
+  c&&c.setOption({series:[
+    {type:'gauge',center:['25%','55%'],radius:'58%',startAngle:200,endAngle:-20,min:0,max:100,
+      axisLine:{lineStyle:{width:8,color:[[0.875,C_OK],[1,C_WARN]]}},pointer:{length:'52%',width:3,itemStyle:{color:C_OK}},
+      axisTick:{distance:-8,length:3,lineStyle:{width:1,color:'#999'}},splitLine:{distance:-10,length:6,lineStyle:{width:1,color:'#999'}},
+      axisLabel:{distance:12,color:TEXT_COLOR,fontSize:7},detail:{formatter:'{value}%',color:TEXT_WHITE,fontSize:14,offsetCenter:[0,'70%']},
+      data:[{value:87.5,name:'覆盖率'}],title:{offsetCenter:[0,'85%'],color:TEXT_COLOR,fontSize:9}},
+    {type:'gauge',center:['75%','55%'],radius:'58%',startAngle:200,endAngle:-20,min:0,max:100,
+      axisLine:{lineStyle:{width:8,color:[[0.623,C_PURPLE],[1,C_MAIN]]}},pointer:{length:'52%',width:3,itemStyle:{color:C_PURPLE}},
+      axisTick:{distance:-8,length:3,lineStyle:{width:1,color:'#999'}},splitLine:{distance:-10,length:6,lineStyle:{width:1,color:'#999'}},
+      axisLabel:{distance:12,color:TEXT_COLOR,fontSize:7},detail:{formatter:'{value}%',color:TEXT_WHITE,fontSize:14,offsetCenter:[0,'70%']},
+      data:[{value:62.3,name:'节能率'}],title:{offsetCenter:[0,'85%'],color:TEXT_COLOR,fontSize:9}}
+  ]});
+})();
+
+// ============ ⑥ 柱状图 — 电梯运行次数 ============
+(function(){
+  var c=initChart('chart-bar-elevator');
+  c&&c.setOption({tooltip:{trigger:'axis'},legend:{...legendS,top:0,data:['今日','日均'],itemWidth:8,itemHeight:5},grid:grid(28),
+    xAxis:{type:'category',data:['图书馆','教学楼A','教学楼B','教学楼C','行政楼','宿舍1-5','宿舍6-10','体育馆'],axisLabel:{...axisLabel,rotate:20,fontSize:7},axisLine},
+    yAxis:{type:'value',name:'次',nameTextStyle:{color:TEXT_COLOR,fontSize:7},axisLabel,splitLine},
+    series:[
+      {name:'今日',type:'bar',data:[4580,3860,3420,2980,2150,5230,4870,1320],itemStyle:{color:{type:'linear',x:0,y:0,x2:0,y2:1,colorStops:[{offset:0,color:C_PURPLE},{offset:1,color:'rgba(108,92,231,0.4)'}]}},barWidth:10,barGap:'25%'},
+      {name:'日均',type:'bar',data:[4450,3750,3350,2900,2100,5100,4750,1280],itemStyle:{color:'rgba(136,153,187,0.35)'},barWidth:10}
+    ]
+  });
+})();
+
+// ============ ⑦ 保养完成率仪表盘 ★新增 ============
+(function(){
+  var c=initChart('chart-gauge-maintain');
+  c&&c.setOption({series:[{type:'gauge',center:['50%','55%'],radius:'78%',startAngle:210,endAngle:-30,min:0,max:100,
+    axisLine:{lineStyle:{width:14,color:[[0.5,C_ERR],[0.8,C_WARN],[1,C_OK]]}},
+    pointer:{length:'58%',width:4,itemStyle:{color:C_MAIN}},
+    axisTick:{distance:-14,length:4,lineStyle:{width:1,color:'#999'}},
+    splitLine:{distance:-17,length:10,lineStyle:{width:2,color:'#999'}},
+    axisLabel:{distance:18,color:TEXT_COLOR,fontSize:8},
+    detail:{formatter:'{value}%',color:TEXT_WHITE,fontSize:22,offsetCenter:[0,'60%']},
+    data:[{value:73.3,name:'保养完成率'}]
+  }],
+  graphic:[{type:'text',left:'center',bottom:6,style:{text:'目标100% | 已完成11/15项',textAlign:'center',fill:TEXT_COLOR,fontSize:9}}]
+  });
+})();
+
+// ============ ⑧ 滚动列表 — 设备异常 ============
+renderScrollList('scroll-alert',[
+  {rank:1,device:'3#变压器',value:'绕组温度超限(95℃)',status:'🔴 紧急 待处理'},
+  {rank:2,device:'AHU-B1-02',value:'回风温度偏高',status:'🟡 重要 处理中'},
+  {rank:3,device:'2#冷水机组',value:'冷凝压力偏高',status:'🟡 重要 处理中'},
+  {rank:4,device:'给水泵P-03',value:'振动幅值超标',status:'🟡 重要 待派单'},
+  {rank:5,device:'L-0582灯具',value:'通信离线',status:'🔵 一般 待派单'},
+  {rank:6,device:'ELV-09电梯',value:'层门闭合偏长',status:'🔵 一般 处理中'}
+]);
+
+// ============ 中心 Canvas — 建筑剖切模型 ============
+(function(){
+  var cnv=document.getElementById('canvas-center'),ctx,rafId;
+  function draw(){
+    cnv.width=cnv.parentElement.clientWidth;cnv.height=cnv.parentElement.clientHeight;
+    ctx=cnv.getContext('2d');var W=cnv.width,H=cnv.height;
+    ctx.clearRect(0,0,W,H);
+    var bx=W*0.15,by=H*0.06,bw=W*0.7,bh=H*0.88;
+    ctx.strokeStyle='rgba(0,212,255,0.3)';ctx.lineWidth=2;ctx.strokeRect(bx,by,bw,bh);
+    var floors=8,fh=bh/floors;
+    for(var i=1;i<floors;i++){
+      var fy=by+i*fh;
+      ctx.strokeStyle='rgba(0,212,255,0.06)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(bx,fy);ctx.lineTo(bx+bw,fy);ctx.stroke();
+      ctx.fillStyle=TEXT_COLOR;ctx.font='9px "Microsoft YaHei"';ctx.textAlign='right';ctx.fillText((floors-i+1)+'F',bx-6,fy+10);
+    }
+    var zones=[{name:'电梯井道',x:bx+bw*0.75,y:by,w:bw*0.1,h:bh,c:'rgba(0,212,255,0.12)'},{name:'空调机房',x:bx+bw*0.05,y:by+fh*6,w:bw*0.18,h:fh*2,c:'rgba(108,92,231,0.12)'},{name:'水泵房',x:bx+bw*0.05,y:by+fh*0.5,w:bw*0.15,h:fh*1,c:'rgba(54,179,126,0.12)'},{name:'配电间',x:bx+bw*0.82,y:by+fh*5,w:bw*0.12,h:fh*1.5,c:'rgba(245,166,35,0.12)'},{name:'弱电间',x:bx+bw*0.82,y:by+fh*2.5,w:bw*0.1,h:fh*1,c:'rgba(0,212,255,0.08)'}];
+    zones.forEach(function(z,i){
+      ctx.fillStyle=z.c;ctx.fillRect(z.x,z.y,z.w,z.h);
+      ctx.strokeStyle=z.c.replace('0.12','0.4');ctx.lineWidth=1;ctx.strokeRect(z.x,z.y,z.w,z.h);
+      ctx.fillStyle='#E8F0FF';ctx.font='bold 10px "Microsoft YaHei"';ctx.textAlign='center';
+      var cx=z.x+z.w/2,cy=z.y+z.h/2;ctx.fillText(z.name,cx,cy+3);
+      var pulse=Math.sin(Date.now()/800+i)*0.5+0.5;
+      ctx.fillStyle=z.c.replace('0.12',String(0.3+pulse*0.5));
+      ctx.beginPath();ctx.arc(cx,cy-10,4+pulse*2.5,0,Math.PI*2);ctx.fill();
+    });
+    rafId=requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+window.addEventListener('resize',function(){
+  var cnv=document.getElementById('canvas-center');
+  if(cnv){cnv.width=cnv.parentElement.clientWidth;cnv.height=cnv.parentElement.clientHeight}
+});
+</script>
+</body>
+</html>
